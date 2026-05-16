@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Catalog screen demoing every ``CBButton`` configuration variant.
 struct ButtonGallery: View {
     @State private var isLoadingDemo = false
     @State private var lastTapped: String?
@@ -14,58 +15,121 @@ struct ButtonGallery: View {
                         .transition(.opacity)
                 }
 
-                section("Styles") {
-                    CBButton("Primary", style: .primary) { tap("Primary") }
-                    CBButton("Secondary", style: .secondary) { tap("Secondary") }
-                    CBButton("Tertiary", style: .tertiary) { tap("Tertiary") }
-                    CBButton("Outline", style: .outline) { tap("Outline") }
-                    CBButton("Ghost", style: .ghost) { tap("Ghost") }
-                    CBButton("Destructive", style: .destructive) { tap("Destructive") }
-                }
-
-                section("Sizes") {
-                    CBButton("Small", size: .small) { tap("Small") }
-                    CBButton("Medium", size: .medium) { tap("Medium") }
-                    CBButton("Large", size: .large) { tap("Large") }
-                }
-
-                section("Shapes") {
-                    CBButton("Rounded", shape: .rounded) { tap("Rounded") }
-                    CBButton("Capsule", shape: .capsule) { tap("Capsule") }
-                    CBButton("Rectangle", shape: .rectangle) { tap("Rectangle") }
-                }
-
-                section("With icons") {
-                    CBButton("Add item", icon: .leading(systemName: "plus")) { tap("Add item") }
-                    CBButton("Continue", icon: .trailing(systemName: "arrow.right"), style: .outline) { tap("Continue") }
-                    HStack(spacing: 12) {
-                        CBButton("", icon: .only(systemName: "heart.fill"), style: .secondary) { tap("Heart") }
-                        CBButton("", icon: .only(systemName: "square.and.arrow.up"), style: .secondary) { tap("Share") }
-                        CBButton("", icon: .only(systemName: "trash"), style: .secondary, shape: .capsule) { tap("Delete") }
-                    }
-                }
-
-                section("States") {
-                    CBButton("Disabled", style: .primary) {}.disabled(true)
-                    CBButton(
-                        isLoadingDemo ? "Loading…" : "Tap to load",
-                        style: .primary,
-                        isLoading: isLoadingDemo
-                    ) {
-                        runLoadingDemo()
-                    }
-                }
-
-                section("Full width") {
-                    CBButton("Primary action", style: .primary, fullWidth: true) { tap("Full width primary") }
-                    CBButton("Secondary action", style: .outline, fullWidth: true) { tap("Full width outline") }
-                }
+                stylesSection
+                sizesSection
+                shapesSection
+                iconsSection
+                statesSection
+                fullWidthSection
             }
             .padding(20)
             .animation(.easeInOut(duration: 0.2), value: lastTapped)
         }
         .navigationTitle("Button")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var stylesSection: some View {
+        section("Styles") {
+            CBButton("Primary", configuration: .init(style: .primary)) { tap("Primary") }
+            CBButton("Secondary", configuration: .init(style: .secondary)) { tap("Secondary") }
+            CBButton("Tertiary", configuration: .init(style: .tertiary)) { tap("Tertiary") }
+            CBButton("Outline", configuration: .init(style: .outline)) { tap("Outline") }
+            CBButton("Ghost", configuration: .init(style: .ghost)) { tap("Ghost") }
+            CBButton(
+                "Destructive",
+                configuration: .init(
+                    style: .destructive,
+                    accessibilityHint: "Performs a destructive action"
+                )
+            ) { tap("Destructive") }
+        }
+    }
+
+    private var sizesSection: some View {
+        section("Sizes") {
+            CBButton("Small", configuration: .init(size: .small)) { tap("Small") }
+            CBButton("Medium", configuration: .init(size: .medium)) { tap("Medium") }
+            CBButton("Large", configuration: .init(size: .large)) { tap("Large") }
+        }
+    }
+
+    private var shapesSection: some View {
+        section("Shapes") {
+            CBButton("Rounded", configuration: .init(shape: .rounded)) { tap("Rounded") }
+            CBButton("Capsule", configuration: .init(shape: .capsule)) { tap("Capsule") }
+            CBButton("Rectangle", configuration: .init(shape: .rectangle)) { tap("Rectangle") }
+        }
+    }
+
+    private var iconsSection: some View {
+        section("With icons") {
+            CBButton(
+                "Add item",
+                configuration: .init(icon: .leading(systemName: "plus"))
+            ) { tap("Add item") }
+            CBButton(
+                "Continue",
+                configuration: .init(
+                    style: .outline,
+                    icon: .trailing(systemName: "arrow.right")
+                )
+            ) { tap("Continue") }
+            HStack(spacing: 12) {
+                CBButton(
+                    "",
+                    configuration: .init(
+                        style: .secondary,
+                        icon: .only(systemName: "heart.fill"),
+                        accessibilityLabel: "Favorite"
+                    )
+                ) { tap("Favorite") }
+                CBButton(
+                    "",
+                    configuration: .init(
+                        style: .secondary,
+                        icon: .only(systemName: "square.and.arrow.up"),
+                        accessibilityLabel: "Share"
+                    )
+                ) { tap("Share") }
+                CBButton(
+                    "",
+                    configuration: .init(
+                        style: .secondary,
+                        shape: .capsule,
+                        icon: .only(systemName: "trash"),
+                        accessibilityLabel: "Delete",
+                        accessibilityHint: "Permanently deletes the item"
+                    )
+                ) { tap("Delete") }
+            }
+        }
+    }
+
+    private var statesSection: some View {
+        section("States") {
+            CBButton("Disabled", configuration: .init(style: .primary)) {}
+                .disabled(true)
+            CBButton(
+                isLoadingDemo ? "Loading…" : "Tap to load",
+                configuration: .init(style: .primary, isLoading: isLoadingDemo)
+            ) {
+                runLoadingDemo()
+            }
+        }
+    }
+
+    private var fullWidthSection: some View {
+        section("Full width") {
+            CBButton(
+                "Primary action",
+                configuration: .init(style: .primary, fullWidth: true)
+            ) { tap("Full width primary") }
+            CBButton(
+                "Secondary action",
+                configuration: .init(style: .outline, fullWidth: true)
+            ) { tap("Full width outline") }
+        }
     }
 
     private func tap(_ name: String) {
