@@ -9,13 +9,18 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationStack {
+            List {
+                Section("Components") {
+                    NavigationLink {
+                        ButtonGallery()
+                    } label: {
+                        Label("Button", systemImage: "rectangle.and.hand.point.up.left.fill")
+                    }
+                }
+            }
+            .navigationTitle("ComponentBook")
         }
-        .padding()
     }
 }
 
