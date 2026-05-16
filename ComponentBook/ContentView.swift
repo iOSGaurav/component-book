@@ -17,6 +17,11 @@ struct ContentView: View {
                     } label: {
                         Label("Button", systemImage: "rectangle.and.hand.point.up.left.fill")
                     }
+                    NavigationLink {
+                        TextFieldGallery()
+                    } label: {
+                        Label("Text field", systemImage: "character.cursor.ibeam")
+                    }
                 }
             }
             .navigationTitle("ComponentBook")
