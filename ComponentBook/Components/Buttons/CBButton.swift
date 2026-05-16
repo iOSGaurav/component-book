@@ -1,6 +1,30 @@
 import SwiftUI
 
+/// A fully configurable SwiftUI button used throughout the ComponentBook catalog.
+///
+/// Visual and behavioural options are grouped into ``Configuration`` so the
+/// initializer keeps a small parameter count. Defaults match the most common
+/// "primary, medium, rounded, no icon" usage; only override what differs.
+///
+///     CBButton("Save") { save() }
+///
+///     CBButton(
+///         "Continue",
+///         configuration: .init(
+///             style: .outline,
+///             icon: .trailing(systemName: "arrow.right")
+///         )
+///     ) { advance() }
+///
+/// Accessibility: the visible title is used as the VoiceOver label by default.
+/// For ``Icon/only(systemName:)`` buttons set
+/// ``Configuration/accessibilityLabel`` to a meaningful description — VoiceOver
+/// cannot infer intent from an SF Symbol name. Use
+/// ``Configuration/accessibilityHint`` to clarify the effect of activation when
+/// the label alone is not enough (e.g. destructive actions).
 public struct CBButton: View {
+
+    /// Visual emphasis of the button.
     public enum Style: Hashable, CaseIterable, Sendable {
         case primary
         case secondary
@@ -10,51 +34,118 @@ public struct CBButton: View {
         case destructive
     }
 
+    /// Vertical scale — drives height, padding, font and spinner size.
     public enum Size: Hashable, CaseIterable, Sendable {
         case small
         case medium
         case large
     }
 
+    /// Outer corner geometry.
     public enum Shape: Hashable, CaseIterable, Sendable {
         case rounded
         case capsule
         case rectangle
     }
 
+    /// Optional SF Symbol companion to the title.
     public enum Icon: Hashable, Sendable {
+        /// No icon.
         case none
+        /// Symbol shown before the title.
         case leading(systemName: String)
+        /// Symbol shown after the title.
         case trailing(systemName: String)
+        /// Symbol only, no visible title. Pair with
+        /// ``Configuration/accessibilityLabel`` so VoiceOver can announce intent.
         case only(systemName: String)
     }
 
+    /// All non-essential options grouped into one value so the initializer stays
+    /// within Sonar's max-parameter limit and unused options stay invisible at
+    /// the call site.
+    public struct Configuration: Hashable, Sendable {
+
+        /// Visual emphasis. Defaults to ``Style/primary``.
+        public var style: Style
+
+        /// Size scale. Defaults to ``Size/medium``.
+        public var size: Size
+
+        /// Corner geometry. Defaults to ``Shape/rounded``.
+        public var shape: Shape
+
+        /// Optional SF Symbol companion to the title. Defaults to ``Icon/none``.
+        public var icon: Icon
+
+        /// When `true`, expands to fill the available horizontal width.
+        public var fullWidth: Bool
+
+        /// When `true`, replaces the label with a tinted progress spinner and
+        /// disables the tap target. VoiceOver announces the button's value as
+        /// "Loading" so users on assistive tech know to wait.
+        public var isLoading: Bool
+
+        /// Overrides the VoiceOver label. Required when using ``Icon/only`` —
+        /// VoiceOver has no visible text to read otherwise.
+        public var accessibilityLabel: String?
+
+        /// Optional VoiceOver hint describing the effect of activation
+        /// (e.g. "Permanently deletes the item").
+        public var accessibilityHint: String?
+
+        /// Creates a configuration. Every option has a default so callers only
+        /// set what differs from the standard look.
+        ///
+        /// - Parameters:
+        ///   - style: Visual emphasis. Defaults to ``Style/primary``.
+        ///   - size: Size scale. Defaults to ``Size/medium``.
+        ///   - shape: Corner geometry. Defaults to ``Shape/rounded``.
+        ///   - icon: Optional SF Symbol companion. Defaults to ``Icon/none``.
+        ///   - fullWidth: Expand to fill the available horizontal width.
+        ///   - isLoading: Show a spinner and block taps.
+        ///   - accessibilityLabel: Override the VoiceOver label.
+        ///   - accessibilityHint: VoiceOver hint describing the effect.
+        public init(
+            style: Style = .primary,
+            size: Size = .medium,
+            shape: Shape = .rounded,
+            icon: Icon = .none,
+            fullWidth: Bool = false,
+            isLoading: Bool = false,
+            accessibilityLabel: String? = nil,
+            accessibilityHint: String? = nil
+        ) {
+            self.style = style
+            self.size = size
+            self.shape = shape
+            self.icon = icon
+            self.fullWidth = fullWidth
+            self.isLoading = isLoading
+            self.accessibilityLabel = accessibilityLabel
+            self.accessibilityHint = accessibilityHint
+        }
+    }
+
     private let title: String
-    private let icon: Icon
-    private let style: Style
-    private let size: Size
-    private let shape: Shape
-    private let fullWidth: Bool
-    private let isLoading: Bool
+    private let configuration: Configuration
     private let action: () -> Void
 
+    /// Creates a button.
+    ///
+    /// - Parameters:
+    ///   - title: The visible label. May be empty when using ``Icon/only(systemName:)``.
+    ///   - configuration: Visual and behavioural options. Defaults to the
+    ///     standard primary / medium / rounded look.
+    ///   - action: Invoked when the user taps the button. Not called while
+    ///     ``Configuration/isLoading`` is `true`.
     public init(
         _ title: String,
-        icon: Icon = .none,
-        style: Style = .primary,
-        size: Size = .medium,
-        shape: Shape = .rounded,
-        fullWidth: Bool = false,
-        isLoading: Bool = false,
+        configuration: Configuration = .init(),
         action: @escaping () -> Void
     ) {
         self.title = title
-        self.icon = icon
-        self.style = style
-        self.size = size
-        self.shape = shape
-        self.fullWidth = fullWidth
-        self.isLoading = isLoading
+        self.configuration = configuration
         self.action = action
     }
 
@@ -62,230 +153,58 @@ public struct CBButton: View {
         Button(action: action) {
             EmptyView()
         }
-        .buttonStyle(
-            CBButtonAppearance(
-                title: title,
-                icon: icon,
-                style: style,
-                size: size,
-                shape: shape,
-                fullWidth: fullWidth,
-                isLoading: isLoading
-            )
-        )
-        .disabled(isLoading)
-        .accessibilityLabel(Text(accessibilityTitle))
+        .buttonStyle(CBButtonAppearance(title: title, configuration: configuration))
+        .disabled(configuration.isLoading)
+        .accessibilityLabel(Text(resolvedAccessibilityLabel))
+        .accessibilityHint(Text(configuration.accessibilityHint ?? ""))
+        .accessibilityValue(Text(configuration.isLoading ? "Loading" : ""))
     }
 
-    private var accessibilityTitle: String {
-        if case .only(let symbol) = icon, title.isEmpty {
-            return symbol.replacingOccurrences(of: ".", with: " ")
+    /// VoiceOver label fallback chain: explicit override → title → SF Symbol name.
+    private var resolvedAccessibilityLabel: String {
+        if let override = configuration.accessibilityLabel, !override.isEmpty {
+            return override
         }
-        return title
-    }
-}
-
-private struct CBButtonAppearance: ButtonStyle {
-    let title: String
-    let icon: CBButton.Icon
-    let style: CBButton.Style
-    let size: CBButton.Size
-    let shape: CBButton.Shape
-    let fullWidth: Bool
-    let isLoading: Bool
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        let metrics = size.metrics
-        let palette = style.palette(pressed: configuration.isPressed)
-
-        return label(metrics: metrics, foreground: palette.foreground)
-            .padding(.horizontal, metrics.horizontalPadding)
-            .frame(minHeight: metrics.height)
-            .frame(maxWidth: fullWidth ? .infinity : nil)
-            .background {
-                shapeFill(metrics: metrics, color: palette.background)
-            }
-            .overlay {
-                shapeStroke(metrics: metrics, color: palette.border, width: palette.borderWidth)
-            }
-            .opacity(isEnabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-            .contentShape(.rect)
-    }
-
-    @ViewBuilder
-    private func label(metrics: SizeMetrics, foreground: Color) -> some View {
-        if isLoading {
-            ProgressView()
-                .controlSize(metrics.spinnerSize)
-                .tint(foreground)
-        } else {
-            HStack(spacing: metrics.iconSpacing) {
-                if case .leading(let name) = icon {
-                    Image(systemName: name).font(metrics.iconFont)
-                }
-                if case .only(let name) = icon {
-                    Image(systemName: name).font(metrics.iconFont)
-                } else {
-                    Text(title).font(metrics.font)
-                }
-                if case .trailing(let name) = icon {
-                    Image(systemName: name).font(metrics.iconFont)
-                }
-            }
-            .foregroundStyle(foreground)
+        if !title.isEmpty {
+            return title
         }
-    }
-
-    @ViewBuilder
-    private func shapeFill(metrics: SizeMetrics, color: Color) -> some View {
-        switch shape {
-        case .rounded:
-            RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous).fill(color)
-        case .capsule:
-            Capsule(style: .continuous).fill(color)
-        case .rectangle:
-            Rectangle().fill(color)
+        if case .only(let systemName) = configuration.icon {
+            return systemName.replacingOccurrences(of: ".", with: " ")
         }
-    }
-
-    @ViewBuilder
-    private func shapeStroke(metrics: SizeMetrics, color: Color, width: CGFloat) -> some View {
-        if width > 0 {
-            switch shape {
-            case .rounded:
-                RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-                    .strokeBorder(color, lineWidth: width)
-            case .capsule:
-                Capsule(style: .continuous).strokeBorder(color, lineWidth: width)
-            case .rectangle:
-                Rectangle().strokeBorder(color, lineWidth: width)
-            }
-        }
-    }
-}
-
-struct SizeMetrics {
-    let height: CGFloat
-    let horizontalPadding: CGFloat
-    let cornerRadius: CGFloat
-    let font: Font
-    let iconFont: Font
-    let iconSpacing: CGFloat
-    let spinnerSize: ControlSize
-}
-
-extension CBButton.Size {
-    var metrics: SizeMetrics {
-        switch self {
-        case .small:
-            SizeMetrics(
-                height: 32,
-                horizontalPadding: 12,
-                cornerRadius: 8,
-                font: .footnote.weight(.semibold),
-                iconFont: .footnote.weight(.semibold),
-                iconSpacing: 6,
-                spinnerSize: .small
-            )
-        case .medium:
-            SizeMetrics(
-                height: 44,
-                horizontalPadding: 16,
-                cornerRadius: 10,
-                font: .body.weight(.semibold),
-                iconFont: .body.weight(.semibold),
-                iconSpacing: 8,
-                spinnerSize: .regular
-            )
-        case .large:
-            SizeMetrics(
-                height: 56,
-                horizontalPadding: 20,
-                cornerRadius: 14,
-                font: .title3.weight(.semibold),
-                iconFont: .title3.weight(.semibold),
-                iconSpacing: 10,
-                spinnerSize: .large
-            )
-        }
-    }
-}
-
-struct StylePalette {
-    let background: Color
-    let foreground: Color
-    let border: Color
-    let borderWidth: CGFloat
-}
-
-extension CBButton.Style {
-    func palette(pressed: Bool) -> StylePalette {
-        switch self {
-        case .primary:
-            StylePalette(
-                background: pressed ? Color.accentColor.opacity(0.82) : .accentColor,
-                foreground: .white,
-                border: .clear,
-                borderWidth: 0
-            )
-        case .secondary:
-            StylePalette(
-                background: Color.accentColor.opacity(pressed ? 0.25 : 0.15),
-                foreground: .accentColor,
-                border: .clear,
-                borderWidth: 0
-            )
-        case .tertiary:
-            StylePalette(
-                background: pressed ? Color.primary.opacity(0.08) : .clear,
-                foreground: .accentColor,
-                border: .clear,
-                borderWidth: 0
-            )
-        case .outline:
-            StylePalette(
-                background: pressed ? Color.accentColor.opacity(0.08) : .clear,
-                foreground: .accentColor,
-                border: .accentColor,
-                borderWidth: 1.5
-            )
-        case .ghost:
-            StylePalette(
-                background: pressed ? Color.primary.opacity(0.08) : .clear,
-                foreground: .primary,
-                border: .clear,
-                borderWidth: 0
-            )
-        case .destructive:
-            StylePalette(
-                background: pressed ? Color.red.opacity(0.82) : .red,
-                foreground: .white,
-                border: .clear,
-                borderWidth: 0
-            )
-        }
+        return ""
     }
 }
 
 #Preview("Variants") {
     ScrollView {
         VStack(spacing: 12) {
-            CBButton("Primary", style: .primary) {}
-            CBButton("Secondary", style: .secondary) {}
-            CBButton("Tertiary", style: .tertiary) {}
-            CBButton("Outline", style: .outline) {}
-            CBButton("Ghost", style: .ghost) {}
-            CBButton("Destructive", style: .destructive) {}
-            CBButton("Save", icon: .leading(systemName: "checkmark"), style: .primary) {}
-            CBButton("Continue", icon: .trailing(systemName: "arrow.right"), style: .outline) {}
-            CBButton("", icon: .only(systemName: "heart.fill"), style: .secondary) {}
-            CBButton("Full Width", style: .primary, fullWidth: true) {}
-            CBButton("Loading", style: .primary, isLoading: true) {}
-            CBButton("Disabled", style: .primary) {}.disabled(true)
+            CBButton("Primary") {}
+            CBButton("Secondary", configuration: .init(style: .secondary)) {}
+            CBButton("Tertiary", configuration: .init(style: .tertiary)) {}
+            CBButton("Outline", configuration: .init(style: .outline)) {}
+            CBButton("Ghost", configuration: .init(style: .ghost)) {}
+            CBButton(
+                "Delete",
+                configuration: .init(
+                    style: .destructive,
+                    accessibilityHint: "Permanently deletes the item"
+                )
+            ) {}
+            CBButton(
+                "Save",
+                configuration: .init(icon: .leading(systemName: "checkmark"))
+            ) {}
+            CBButton(
+                "",
+                configuration: .init(
+                    style: .secondary,
+                    icon: .only(systemName: "heart.fill"),
+                    accessibilityLabel: "Favorite"
+                )
+            ) {}
+            CBButton("Full Width", configuration: .init(fullWidth: true)) {}
+            CBButton("Loading", configuration: .init(isLoading: true)) {}
+            CBButton("Disabled") {}.disabled(true)
         }
         .padding()
     }
